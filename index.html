@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <title>Premios Amor</title>
+  <style>
+    body {
+      background-color: pink;
+      font-family: Arial, sans-serif;
+      text-align: center;
+    }
+    .card {
+      background: white;
+      padding: 1em;
+      margin: 1em auto;
+      border-radius: 10px;
+      width: 250px;
+      box-shadow: 0 0 10px rgba(0,0,0,0.2);
+    }
+    .disabled {
+      background-color: grey !important;
+      cursor: not-allowed;
+    }
+    button {
+      background-color: deeppink;
+      color: white;
+      border: none;
+      padding: 0.5em 1em;
+      border-radius: 5px;
+      cursor: pointer;
+    }
+  </style>
+</head>
+<body>
+  <h2>¡Hola amor! 💖 Tus puntos: <span id="points">0</span></h2>
+  <h3>Premios disponibles</h3>
+  <div id="catalog"></div>
+  <h3>🎁 Premios reclamados</h3>
+  <ul id="claimedList"></ul>
+
+  <script>
+    const endpoint = "https://script.google.com/macros/s/AKfycbyZGfnmjmrymBetqQc1KJxgGXIMG66X6ZfKooPA6WIv9rJEkfwuI2FLgVF38wHpjy5E/exec";
+    const rewards = [
+      { nombre: "Cena romántica", puntos: 100 },
+      { nombre: "Cine", puntos: 50 },
+      { nombre: "Bono de ropa", puntos: 150 },
+      { nombre: "Skin Care", puntos: 200 },
+      { nombre: "Cámara Instantánea", puntos: 300 }
+    ];
+
+    let state = { puntos: 0, reclamados: [] };
+
+    async function loadData() {
+      try {
+        const res = await fetch(endpoint);
+        const data = await res.json();
+
+        if (!Array.isArray(data.reclamados)) {
+          data.reclamados = JSON.parse(data.reclamados || "[]");
+        }
+
+        state = data;
+        document.getElementById("points").textContent = state.puntos;
+        renderCatalog();
+        renderClaimed();
+      } catch (err) {
+        alert("Error cargando datos de Google Sheets");
+        console.error(err);
+      }
+    }
+
+    function renderCatalog() {
+      const container = document.getElementById("catalog");
+      container.innerHTML = "";
+      rewards.forEach(premio => {
+        const card = document.createElement("div");
+        card.className = "card";
+        card.innerHTML = `
+          <strong>${premio.nombre}</strong><br>
+          ${premio.puntos} puntos<br><br>
+          <button ${state.puntos < premio.puntos ? "disabled class='disabled'" : ""}>
+            Canjear
+          </button>
+        `;
+        card.querySelector("button").onclick = () => redeem(premio);
+        container.appendChild(card);
+      });
+    }
+
+    function renderClaimed() {
+      const ul = document.getElementById("claimedList");
+      ul.innerHTML = "";
+      state.reclamados.forEach(r => {
+        const li = document.createElement("li");
+        li.textContent = r;
+        ul.appendChild(li);
+      });
+    }
+
+    async function redeem(premio) {
+      if (state.reclamados.includes(premio.nombre)) return;
+      if (state.puntos < premio.puntos) return;
+
+      state.puntos -= premio.puntos;
+      state.reclamados.push(premio.nombre);
+
+      try {
+        await fetch(endpoint, {
+          method: "POST",
+          body: JSON.stringify(state),
+          headers: { "Content-Type": "application/json" }
+        });
+        document.getElementById("points").textContent = state.puntos;
+        renderCatalog();
+        renderClaimed();
+      } catch (err) {
+        alert("Error guardando datos");
+        console.error(err);
+      }
+    }
+
+    loadData();
+  </script>
+</body>
+</html>
